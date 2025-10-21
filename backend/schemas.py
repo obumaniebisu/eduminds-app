@@ -16,4 +16,31 @@ class Product(ProductBase):
     class Config:
         orm_mode = True
 
-# OrderItem and Order schemas can be added later
+# OrderItem Schemas
+class OrderItemBase(BaseModel):
+    product_id: int
+    quantity: int
+
+class OrderItemCreate(OrderItemBase):
+    pass
+
+class OrderItem(OrderItemBase):
+    id: int
+    product: Product
+    class Config:
+        orm_mode = True
+
+# Order Schemas
+class OrderBase(BaseModel):
+    customer_name: str
+    order_date: date
+
+class OrderCreate(OrderBase):
+    items: List[OrderItemCreate]
+
+class Order(OrderBase):
+    id: int
+    items: List[OrderItem]
+    class Config:
+        orm_mode = True
+
