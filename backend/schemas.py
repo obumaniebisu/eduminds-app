@@ -43,4 +43,3 @@ class Order(OrderBase):
     items: List[OrderItem]
     class Config:
         orm_mode = True
-
