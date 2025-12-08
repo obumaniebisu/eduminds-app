@@ -38,4 +38,4 @@ Learners can access video lessons, text guides, assignments, and AI-powered prac
 ## 🚀 Vision
 
 To empower millions with practical skills, helping them become employable, self-reliant, and future-ready.
-Update README with full project details
+Update README with full projec
