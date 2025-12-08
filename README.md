@@ -8,7 +8,6 @@ Learners can access video lessons, text guides, assignments, and AI-powered prac
 
 ## ✨ Key Features
 
-Update README with full project details
 - 🎥 Video lessons and practical demonstrations  
 - 📘 Skill notes and step-by-step guides  
 - 📝 Assignments & quizzes  
@@ -38,5 +37,5 @@ Update README with full project details
 
 ## 🚀 Vision
 
-To empower millions with practical skills, helping them become employable, self-reliant, and future-ready.Update README with full project details
-
+To empower millions with practical skills, helping them become employable, self-reliant, and future-ready.
+Update README with full project details
