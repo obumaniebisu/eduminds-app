@@ -1,28 +1,14 @@
 name: Build and deploy Python app to Azure Web App - eduminds-backend
 
-on:name: Build and deploy Python app to Azure Web App - eduminds-backend
-
 on:
   push:
     branches:
       - main
   workflow_dispatch:
 
-permissions:          # <-- ADD IT HERE
+permissions:          # <-- Add at top-level, outside jobs
   id-token: write
   contents: read
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      # ... rest of your steps
-
-  push:
-    branches:
-      - main
-  workflow_dispatch:
 
 jobs:
   deploy:
@@ -51,4 +37,4 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: eduminds-backend
-          slot-name: Production 
+          slot-name: Production
