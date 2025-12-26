@@ -6,7 +6,7 @@ on:
       - main
   workflow_dispatch:
 
-permissions:          # <-- Add at top-level, outside jobs
+permissions:          # Top-level permissions required for Azure login
   id-token: write
   contents: read
 
@@ -14,7 +14,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
