@@ -2,3 +2,6 @@ fastapi
 uvicorn[standard]
 gunicorn
 pydantic
+databases
+asyncpg       # for PostgreSQL
+python-dotenv
