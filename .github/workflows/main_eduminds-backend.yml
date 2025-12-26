@@ -42,10 +42,7 @@ jobs:
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_C6C1AF68C1D24FB698B9427A8AC256AE }}
 
       - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3  
-         with:
-          app-name: eduminds-backend
-          slot-name: Production
+        uses: azure/webapps-deploy@v3
         with:
           app-name: eduminds-backend
           slot-name: Production
