@@ -1,3 +1,3 @@
 #!/bin/bash
 cd backend
-gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:8000
+gunicorn -c gunicorn.conf.py app.main:app
