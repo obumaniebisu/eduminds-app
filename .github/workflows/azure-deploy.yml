@@ -1,8 +1,4 @@
-{
-  "clientId": "462bef3d-ad1e-48e1-a69e-4ba65b2f3cfe",
-  "clientSecret": "<YOUR_CLIENT_SECRET>",
-  "subscriptionId": "a3de9688-a56e-4401-bf99-257fee13fa13",
-  "tenantId": "d78ba51d-cf17-4b92-821b-15301bb00a9c",
-  "activeDirectoryEndpointUrl": "https://login.microsoftonline.com",
-  "resourceManagerEndpointUrl": "https://management.azure.com/"
-}
+- name: Login to Azure
+  uses: azure/login@v2
+  with:
+    creds: ${{ secrets.AZURE_CREDENTIALS }}
