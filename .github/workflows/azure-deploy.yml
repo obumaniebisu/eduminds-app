@@ -36,6 +36,7 @@ jobs:
       - name: Deploy FastAPI to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: eduminds-backend  # your Azure App Service name
-          slot-name: production       # default slot
-          package: .                  # deploy root folder
+          app-name: eduminds-backend       # your Azure App Service name
+          slot-name: production            # default slot
+          package: .                       # deploy root folder
+          resource-group: eduminds-rg     # your Azure resource group
