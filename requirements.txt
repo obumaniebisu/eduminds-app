@@ -1,3 +1,5 @@
 fastapi
 uvicorn
-gunicorn
+gunicorn  new fastapi
+uvicorn[standard]
+azure-storage-blob
