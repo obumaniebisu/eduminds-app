@@ -1,5 +1,5 @@
 fastapi==0.111.1
 uvicorn[standard]==0.24.0
-gunicorn==22.1.0
+gunicorn==25.0.1          # updated from 22.1.0
 azure-storage-blob==12.26.0
 python-dotenv==1.0.0
