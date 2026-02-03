@@ -47,9 +47,20 @@ def list_blobs(container_name: str):
     try:
         service: BlobServiceClient = get_blob_service()
         container_client: ContainerClient = service.get_container_client(container_name)
-
         blobs = [blob.name for blob in container_client.list_blobs()]
         return blobs
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
+# --------------------------------------------------
+# List blobs in default container (optional convenience)
+# --------------------------------------------------
+@app.get("/blobs", response_model=List[str])
+def list_default_blobs():
+    container_name = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "eduminds-data")
+    try:
+        service = get_blob_service()
+        container_client = service.get_container_client(container_name)
+        return [blob.name for blob in container_client.list_blobs()]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
