@@ -2,12 +2,11 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from app.security import hash_password  # your hashing function
+from app.security import hash_password
 
-# FastAPI app instance
 app = FastAPI(title="Eduminds API")
 
-# Allow CORS for all origins (needed if frontend hosted elsewhere)
+# Allow all CORS requests (good for testing, can restrict later)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,32 +15,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Pydantic model for registration request
+# Registration input schema
 class RegisterRequest(BaseModel):
     username: str
     email: str
     password: str
 
-# Root endpoint for quick test
 @app.get("/")
 def root():
     return {"message": "Eduminds backend running"}
 
-# Health check endpoint (Azure will probe this)
+# Azure Health Check endpoint
 @app.get("/health")
 def health():
-    return {"status": "healthy"}  # must return fast and 200 OK
+    """
+    Simple health check for Azure App Service
+    Returns 200 OK if the app is running
+    """
+    return {"status": "healthy"}
 
-# Registration endpoint
 @app.post("/auth/register")
 def register(request: RegisterRequest):
-    # Hash password before returning (or saving to DB in future)
-    hashed_pw = hash_password(request.password)
+    # Hash the password
+    hashed_password = hash_password(request.password)
+
     return {
         "message": "Registration successful",
         "user": {
             "username": request.username,
             "email": request.email,
-            "hashed_password": hashed_pw,
+            "hashed_password": hashed_password,
         },
     }
