@@ -3,6 +3,16 @@
 
 # Python cache
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Database
+eduminds.db
+
+# VS Code settings
+.vscode/

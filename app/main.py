@@ -1,12 +1,18 @@
-# app/main.py
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, Depends, HTTPException
+from pydantic import BaseModel, EmailStr
 from fastapi.middleware.cors import CORSMiddleware
-from app.security import hash_password
+from sqlalchemy.orm import Session
+
+# Internal imports
+from . import models
+from .database import engine, get_db
+from .security import hash_password, verify_password # Added verify_password
+
+# Create database tables automatically on startup
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Eduminds API")
 
-# Allow all CORS requests (good for testing, can restrict later)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -15,35 +21,70 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Registration input schema
+# --- Input Schemas ---
 class RegisterRequest(BaseModel):
     username: str
-    email: str
+    email: EmailStr
     password: str
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+# --- Endpoints ---
 
 @app.get("/")
 def root():
     return {"message": "Eduminds backend running"}
 
-# Azure Health Check endpoint
 @app.get("/health")
 def health():
-    """
-    Simple health check for Azure App Service
-    Returns 200 OK if the app is running
-    """
     return {"status": "healthy"}
 
 @app.post("/auth/register")
-def register(request: RegisterRequest):
-    # Hash the password
-    hashed_password = hash_password(request.password)
+def register(request: RegisterRequest, db: Session = Depends(get_db)):
+    # 1. Check if user already exists
+    existing_user = db.query(models.User).filter(models.User.email == request.email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    # 2. Hash and Save
+    hashed_pwd = hash_password(request.password)
+    new_user = models.User(
+        username=request.username, 
+        email=request.email, 
+        hashed_password=hashed_pwd
+    )
+    
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
 
     return {
-        "message": "Registration successful",
+        "message": "User registered and saved!", 
         "user": {
-            "username": request.username,
-            "email": request.email,
-            "hashed_password": hashed_password,
-        },
+            "id": new_user.id,
+            "username": new_user.username,
+            "email": new_user.email
+        }
+    }
+
+@app.post("/auth/login")
+def login(request: LoginRequest, db: Session = Depends(get_db)):
+    # 1. Fetch the user
+    user = db.query(models.User).filter(models.User.email == request.email).first()
+    
+    # 2. Validate user existence and password
+    if not user or not verify_password(request.password, user.hashed_password):
+        raise HTTPException(
+            status_code=401, 
+            detail="Invalid email or password"
+        )
+
+    return {
+        "message": "Login successful",
+        "user": {
+            "username": user.username,
+            "email": user.email
+        }
     }
