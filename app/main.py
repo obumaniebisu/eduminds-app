@@ -1,85 +1,115 @@
 from fastapi import FastAPI, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+from typing import List, Optional
+from pydantic import BaseModel, EmailStr
 
-# Internal imports from your other files
-from . import models
-from .database import engine, get_db
-from .security import hash_password, verify_password, create_access_token, SECRET_KEY, ALGORITHM
+# Internal imports
+from app import models, auth, database
 
-# 1. Initialize Database Tables
-models.Base.metadata.create_all(bind=engine)
+# 1. Initialize database tables
+models.Base.metadata.create_all(bind=database.engine)
 
-app = FastAPI(title="Eduminds API")
-
-# 2. Tell FastAPI where to find the "Lock" (OAuth2)
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# --- Schemas ---
-class RegisterRequest(BaseModel):
-    username: str
-    email: EmailStr
-    password: str
-
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-# --- THE SECURITY GUARD (Dependency) ---
-# This function checks the "Digital Key" (Token)
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+# 2. SEED ADMIN USER (Prevents 401 Unauthorized)
+def seed_admin():
+    db = database.SessionLocal()
     try:
-        # Decode the token to see who it belongs to
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise HTTPException(status_code=401, detail="Invalid Token")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token has expired or is invalid")
-        
-    user = db.query(models.User).filter(models.User.email == email).first()
-    return user
+        admin = db.query(models.User).filter(models.User.username == "admin").first()
+        if not admin:
+            new_admin = models.User(
+                username="admin",
+                hashed_password=auth.get_password_hash("admin123"),
+                role="admin"
+            )
+            db.add(new_admin)
+            db.commit()
+            print("--- Admin user 'admin' created with password 'admin123' ---")
+    finally:
+        db.close()
 
-# --- ENDPOINTS ---
+seed_admin()
 
-@app.post("/auth/register")
-def register(request: RegisterRequest, db: Session = Depends(get_db)):
-    # Standard registration logic
-    hashed_pwd = hash_password(request.password)
-    new_user = models.User(username=request.username, email=request.email, hashed_password=hashed_pwd)
-    db.add(new_user)
-    db.commit()
-    return {"message": "User registered!"}
+app = FastAPI(title="Eduminds Backend")
 
-@app.post("/auth/login")
-def login(request: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.email == request.email).first()
-    if not user or not verify_password(request.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Wrong email or password")
+# --- 3. SCHEMAS ---
+class SkillCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
 
-    # GIVE THE USER THEIR KEY
-    token = create_access_token(data={"sub": user.email})
-    return {"access_token": token, "token_type": "bearer"}
+class StudentCreate(BaseModel):
+    full_name: str
+    email: EmailStr
+    enrollment_id: str
+    skill_id: int
 
-# --- THE LOCKED ROOM (Protected Route) ---
-@app.get("/users/me")
-def read_users_me(current_user: models.User = Depends(get_current_user)):
-    # This only runs if get_current_user finds a valid key!
+# --- 4. HEALTH CHECK ---
+@app.get("/")
+def health_check():
+    return {"status": "healthy", "version": "1.0.1"}
+
+# --- 5. AUTHENTICATION ---
+@app.post("/login")
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(database.get_db)
+):
+    user = db.query(models.User).filter(models.User.username == form_data.username).first()
+    
+    if not user or not auth.verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Invalid username or password"
+        )
+
+    access_token = auth.create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+# --- 6. ADMIN DASHBOARD ---
+@app.get("/admin/dashboard")
+def get_admin_dashboard(
+    db: Session = Depends(database.get_db),
+    current_admin: models.User = Depends(auth.admin_required)
+):
+    student_count = db.query(models.Student).count()
+    skills = db.query(models.Skill).all()
+    skill_names = [s.name for s in skills]
+
     return {
-        "msg": "Welcome to your private dashboard",
-        "user_details": {
-            "username": current_user.username,
-            "email": current_user.email
+        "message": f"Welcome back, {current_admin.username}!",
+        "stats": {
+            "active_students": student_count,
+            "skills": skill_names
         }
     }
+
+# --- 7. STUDENT MANAGEMENT ---
+@app.post("/admin/students", status_code=status.HTTP_201_CREATED)
+def register_student(
+    student: StudentCreate,
+    db: Session = Depends(database.get_db),
+    current_admin: models.User = Depends(auth.admin_required)
+):
+    if db.query(models.Student).filter(models.Student.email == student.email).first():
+        raise HTTPException(status_code=400, detail="Student email already registered")
+
+    new_student = models.Student(**student.model_dump())
+    db.add(new_student)
+    db.commit()
+    db.refresh(new_student)
+    return {"message": "Student created", "id": new_student.id}
+
+# --- 8. SKILL MANAGEMENT ---
+@app.post("/admin/skills")
+def add_skill(
+    skill: SkillCreate,
+    db: Session = Depends(database.get_db),
+    current_admin: models.User = Depends(auth.admin_required)
+):
+    if db.query(models.Skill).filter(models.Skill.name == skill.name).first():
+        raise HTTPException(status_code=400, detail="Skill already exists")
+
+    new_skill = models.Skill(**skill.model_dump())
+    db.add(new_skill)
+    db.commit()
+    db.refresh(new_skill)
+    return {"message": "Skill added", "id": new_skill.id}

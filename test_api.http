@@ -1,0 +1,21 @@
+### 1. Login to get Token
+# @name login
+POST http://127.0.0.1:8000/login
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=password&username=admin&password=admin123
+
+### 2. Add a New Skill
+# Replace YOUR_TOKEN_HERE with the token from the login response
+POST http://127.0.0.1:8000/admin/skills
+Authorization: Bearer YOUR_TOKEN_HERE
+Content-Type: application/json
+
+{
+    "name": "Data Analysis",
+    "description": "Learning Python and SQL for data"
+}
+
+### 3. Check Admin Dashboard
+GET http://127.0.0.1:8000/admin/dashboard
+Authorization: Bearer YOUR_TOKEN_HERE

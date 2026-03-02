@@ -1,18 +1,17 @@
-# Environment files
-.env
-
-# Python cache
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Virtual Environment
 .venv/
 venv/
 env/
 
-# Database
-eduminds.db
+# Databases
+*.db
+*.sqlite3
 
-# VS Code settings
+# Environment variables
+.env
+
+# IDEs
 .vscode/
