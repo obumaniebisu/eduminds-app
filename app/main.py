@@ -10,7 +10,7 @@ from app import models, auth, database
 # 1. Initialize database tables
 models.Base.metadata.create_all(bind=database.engine)
 
-# 2. SEED ADMIN USER (Azure-Safe: includes email to avoid NOT NULL errors)
+# 2. SEED ADMIN USER (Azure-Safe: prevents NOT NULL errors)
 def seed_admin():
     db = database.SessionLocal()
     try:
@@ -56,12 +56,8 @@ def login(
     db: Session = Depends(database.get_db)
 ):
     user = db.query(models.User).filter(models.User.username == form_data.username).first()
-    
     if not user or not auth.verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="Invalid username or password"
-        )
+        raise HTTPException(status_code=401, detail="Invalid username or password")
 
     access_token = auth.create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
@@ -74,106 +70,66 @@ def get_admin_dashboard(
 ):
     student_count = db.query(models.Student).count()
     skills = db.query(models.Skill).all()
-    skill_names = [s.name for s in skills]
-
     return {
         "message": f"Welcome back, {current_admin.username}!",
-        "stats": {
-            "active_students": student_count,
-            "skills": skill_names
-        }
+        "stats": {"active_students": student_count, "skills": [s.name for s in skills]}
     }
 
 @app.get("/admin/students")
 def list_students(
     skip: int = 0, 
-    limit: int = Query(default=10, le=50), # Pagination: Max 50 per request
+    limit: int = Query(default=10, le=50),
     db: Session = Depends(database.get_db),
     current_admin: models.User = Depends(auth.admin_required)
 ):
-    """Azure-Safe: Loads only 10 students at a time to save memory."""
-    students = db.query(models.Student).offset(skip).limit(limit).all()
-    return students
+    return db.query(models.Student).offset(skip).limit(limit).all()
 
 # --- 7. STUDENT MANAGEMENT (CRUD) ---
-@app.post("/admin/students", status_code=status.HTTP_201_CREATED)
-def register_student(
-    student: StudentCreate,
-    db: Session = Depends(database.get_db),
-    current_admin: models.User = Depends(auth.admin_required)
-):
+@app.post("/admin/students", status_code=201)
+def register_student(student: StudentCreate, db: Session = Depends(database.get_db), current_admin=Depends(auth.admin_required)):
     if db.query(models.Student).filter(models.Student.email == student.email).first():
-        raise HTTPException(status_code=400, detail="Student email already registered")
-
+        raise HTTPException(status_code=400, detail="Email already exists")
     new_student = models.Student(**student.model_dump())
     db.add(new_student)
     db.commit()
     db.refresh(new_student)
-    return {"message": "Student created", "id": new_student.id}
+    return new_student
 
 @app.put("/admin/students/{student_id}")
-def update_student(
-    student_id: int, 
-    student_update: StudentCreate, 
-    db: Session = Depends(database.get_db),
-    current_admin: models.User = Depends(auth.admin_required)
-):
+def update_student(student_id: int, student_update: StudentCreate, db: Session = Depends(database.get_db), current_admin=Depends(auth.admin_required)):
     db_student = db.query(models.Student).filter(models.Student.id == student_id).first()
-    if not db_student:
-        raise HTTPException(status_code=404, detail="Student not found")
-    
+    if not db_student: raise HTTPException(status_code=404, detail="Student not found")
     for key, value in student_update.model_dump().items():
         setattr(db_student, key, value)
-    
     db.commit()
     db.refresh(db_student)
-    return {"message": "Student updated", "student": db_student}
+    return db_student
 
-@app.delete("/admin/students/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_student(
-    student_id: int, 
-    db: Session = Depends(database.get_db),
-    current_admin: models.User = Depends(auth.admin_required)
-):
+@app.delete("/admin/students/{student_id}", status_code=204)
+def delete_student(student_id: int, db: Session = Depends(database.get_db), current_admin=Depends(auth.admin_required)):
     db_student = db.query(models.Student).filter(models.Student.id == student_id).first()
-    if not db_student:
-        raise HTTPException(status_code=404, detail="Student not found")
-    
+    if not db_student: raise HTTPException(status_code=404, detail="Student not found")
     db.delete(db_student)
     db.commit()
     return None
 
 # --- 8. SKILL MANAGEMENT (CRUD) ---
 @app.post("/admin/skills")
-def add_skill(
-    skill: SkillCreate,
-    db: Session = Depends(database.get_db),
-    current_admin: models.User = Depends(auth.admin_required)
-):
+def add_skill(skill: SkillCreate, db: Session = Depends(database.get_db), current_admin=Depends(auth.admin_required)):
     if db.query(models.Skill).filter(models.Skill.name == skill.name).first():
         raise HTTPException(status_code=400, detail="Skill already exists")
-
     new_skill = models.Skill(**skill.model_dump())
     db.add(new_skill)
     db.commit()
     db.refresh(new_skill)
-    return {"message": "Skill added", "id": new_skill.id}
+    return new_skill
 
-@app.delete("/admin/skills/{skill_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_skill(
-    skill_id: int, 
-    db: Session = Depends(database.get_db),
-    current_admin: models.User = Depends(auth.admin_required)
-):
+@app.delete("/admin/skills/{skill_id}", status_code=204)
+def delete_skill(skill_id: int, db: Session = Depends(database.get_db), current_admin=Depends(auth.admin_required)):
     db_skill = db.query(models.Skill).filter(models.Skill.id == skill_id).first()
-    if not db_skill:
-        raise HTTPException(status_code=404, detail="Skill not found")
-    
-    # Safety Check: Prevent orphaned student records
-    has_students = db.query(models.Student).filter(models.Student.skill_id == skill_id).first()
-    if has_students:
-        raise HTTPException(status_code=400, detail="Cannot delete skill: students are enrolled.")
-    
+    if not db_skill: raise HTTPException(status_code=404, detail="Skill not found")
+    if db.query(models.Student).filter(models.Student.skill_id == skill_id).first():
+        raise HTTPException(status_code=400, detail="Cannot delete skill with enrolled students")
     db.delete(db_skill)
     db.commit()
     return None

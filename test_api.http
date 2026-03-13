@@ -3,19 +3,37 @@
 POST http://127.0.0.1:8000/login
 Content-Type: application/x-www-form-urlencoded
 
-grant_type=password&username=admin&password=admin123
+username=admin&password=admin123
 
-### 2. Add a New Skill
-# Replace YOUR_TOKEN_HERE with the token from the login response
+### Variable setup for automated testing
+@token = {{login.response.body.access_token}}
+
+### 2. Create a Skill
 POST http://127.0.0.1:8000/admin/skills
-Authorization: Bearer YOUR_TOKEN_HERE
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-    "name": "Data Analysis",
-    "description": "Learning Python and SQL for data"
+    "name": "Cloud Computing",
+    "description": "Azure basics and deployment"
 }
 
-### 3. Check Admin Dashboard
+### 3. Create a Student (Using Skill ID 1)
+POST http://127.0.0.1:8000/admin/students
+Authorization: Bearer {{ "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc3MjU2MjgyN30.r1AYnOcyat7zTts4UVMGFZwDbFaSrSR_pxwgTUk8JJc",}}
+Content-Type: application/json
+
+{
+    "full_name": "Azure Student",
+    "email": "student@azure.com",
+    "enrollment_id": "EDU-001",
+    "skill_id": 1
+}
+
+### 4. Get Dashboard Stats
 GET http://127.0.0.1:8000/admin/dashboard
-Authorization: Bearer YOUR_TOKEN_HERE
+Authorization: Bearer {{token}}
+
+### 5. List Students (Paginated)
+GET http://127.0.0.1:8000/admin/students?skip=0&limit=10
+Authorization: Bearer {{token}}
